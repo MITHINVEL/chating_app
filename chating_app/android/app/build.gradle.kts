@@ -58,4 +58,9 @@ dependencies {
     implementation("com.google.firebase:firebase-crashlytics-ndk")
   // Add the dependencies for any other desired Firebase products
   // https://firebase.google.com/docs/android/setup#available-libraries
+    // Import the BoM for the Firebase platform
+
+    // Add the dependency for the Firebase Authentication library
+    // When using the BoM, you don't specify versions in Firebase library dependencies
+    implementation("com.google.firebase:firebase-auth")
 }

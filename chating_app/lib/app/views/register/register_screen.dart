@@ -28,6 +28,9 @@ class _RegisterBodyState extends State<_RegisterBody> {
   final TextEditingController confirmController = TextEditingController();
   String countryCode = '+91';
 
+  bool passwordVisible = false;
+  bool confirmVisible = false;
+
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -46,7 +49,8 @@ class _RegisterBodyState extends State<_RegisterBody> {
             children: [
               TextFormField(
                 controller: nameController,
-                decoration: InputDecoration(labelText: 'Full Name',
+                decoration: InputDecoration(
+                  labelText: 'Full Name',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.grey),
@@ -60,6 +64,8 @@ class _RegisterBodyState extends State<_RegisterBody> {
                 curve: Curves.easeInOut,
                 child: TextFormField(
                   controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) => value == null || value.isEmpty ? 'Enter mobile number' : null,
                   decoration: InputDecoration(
                     labelText: 'Mobile Number',
                     prefixIcon: GestureDetector(
@@ -90,8 +96,6 @@ class _RegisterBodyState extends State<_RegisterBody> {
                       borderSide: BorderSide(color: Colors.grey),
                     ),
                   ),
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value == null || value.isEmpty ? 'Enter mobile number' : null,
                 ),
               ),
               SizedBox(height: 16),
@@ -111,29 +115,42 @@ class _RegisterBodyState extends State<_RegisterBody> {
               ),
               SizedBox(height: 16),
               TextFormField(
-                
                 controller: passwordController,
-                decoration: InputDecoration(labelText: 'Password',
+                decoration: InputDecoration(
+                  labelText: 'Password',
                   hintText: 'Enter your password',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.grey),
                   ),
+                  suffixIcon: IconButton(
+                    icon: Icon(passwordVisible ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() { passwordVisible = !passwordVisible; });
+                    },
+                  ),
                 ),
-                obscureText: true,
+                obscureText: !passwordVisible,
                 validator: (value) => value == null || value.length < 6 ? 'Password must be at least 6 characters' : null,
               ),
               SizedBox(height: 16),
               TextFormField(
                 controller: confirmController,
-                decoration: InputDecoration(labelText: 'Confirm Password',
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
                   hintText: 'Re-enter your password',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(color: Colors.grey),
                   ),
+                  suffixIcon: IconButton(
+                    icon: Icon(confirmVisible ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () {
+                      setState(() { confirmVisible = !confirmVisible; });
+                    },
+                  ),
                 ),
-                obscureText: true,
+                obscureText: !confirmVisible,
                 validator: (value) => value != passwordController.text ? 'Passwords do not match' : null,
               ),
               SizedBox(height: 20),
@@ -141,6 +158,11 @@ class _RegisterBodyState extends State<_RegisterBody> {
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     setState(() { emailExistsError = false; });
+                    // Only proceed if passwords match
+                    if (passwordController.text != confirmController.text) {
+                      Get.snackbar('Error', 'Passwords do not match', backgroundColor: Colors.red, colorText: Colors.white);
+                      return;
+                    }
                     try {
                       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
                         email: emailController.text,
@@ -177,10 +199,8 @@ class _RegisterBodyState extends State<_RegisterBody> {
               Row(
                 children: [
                   SizedBox(width: 8),
-                  Text('Already have an account?',
-                  style: TextStyle(fontSize: 16)),
+                  Text('Already have an account?', style: TextStyle(fontSize: 16)),
                   TextButton(
-                    
                     onPressed: () => Get.toNamed('/login'),
                     child: Text(' Login', style: TextStyle(fontSize: 16)),
                   ),
