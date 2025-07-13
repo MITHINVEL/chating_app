@@ -20,6 +20,7 @@ class _RegisterBody extends StatefulWidget {
 }
 
 class _RegisterBodyState extends State<_RegisterBody> {
+  bool emailExistsError = false;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -96,12 +97,14 @@ class _RegisterBodyState extends State<_RegisterBody> {
               SizedBox(height: 16),
               TextFormField(
                 controller: emailController,
-                decoration: InputDecoration(labelText: 'Email Address',
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
                   hintText: 'Enter your email',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey),
+                    borderSide: BorderSide(color: emailExistsError ? Colors.red : Colors.grey),
                   ),
+                  errorText: emailExistsError ? 'Email already exists' : null,
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) => value == null || value.isEmpty ? 'Enter email' : null,
@@ -137,6 +140,7 @@ class _RegisterBodyState extends State<_RegisterBody> {
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
+                    setState(() { emailExistsError = false; });
                     try {
                       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
                         email: emailController.text,
@@ -150,7 +154,20 @@ class _RegisterBodyState extends State<_RegisterBody> {
                         'createdAt': FieldValue.serverTimestamp(),
                       });
                       Get.snackbar('Success', 'Account created and data stored!', backgroundColor: Colors.green, colorText: Colors.white);
+                      // Full refresh: clear all fields and reset form
+                      nameController.clear();
+                      phoneController.clear();
+                      emailController.clear();
+                      passwordController.clear();
+                      confirmController.clear();
+                      setState(() {
+                        _formKey.currentState?.reset();
+                        emailExistsError = false;
+                      });
                     } catch (e) {
+                      if (e is FirebaseAuthException && e.code == 'email-already-in-use') {
+                        setState(() { emailExistsError = true; });
+                      }
                       Get.snackbar('Error', e.toString(), backgroundColor: Colors.red, colorText: Colors.white);
                     }
                   }
