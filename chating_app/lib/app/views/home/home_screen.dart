@@ -1,5 +1,3 @@
-
-
 import 'package:chating_app/app/views/search/contect.dart';
 import 'package:flutter/material.dart';
 

@@ -5,12 +5,35 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 class ContactsController extends GetxController {
   var contacts = <Contact>[].obs;
   var isLoading = false.obs;
+  var permissionGranted = false.obs;
 
-  Future<void> fetchContacts() async {
+  Future<void> fetchContacts(BuildContext context) async {
     isLoading.value = true;
-    if (await FlutterContacts.requestPermission()) {
+    permissionGranted.value = await FlutterContacts.requestPermission();
+    if (permissionGranted.value) {
       final fetchedContacts = await FlutterContacts.getContacts(withProperties: true);
       contacts.value = fetchedContacts;
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Permission Required'),
+          content: Text('Please allow contact permission to show your contacts.'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                permissionGranted.value = await FlutterContacts.requestPermission();
+                if (permissionGranted.value) {
+                  final fetchedContacts = await FlutterContacts.getContacts(withProperties: true);
+                  contacts.value = fetchedContacts;
+                }
+              },
+              child: Text('Allow'),
+            ),
+          ],
+        ),
+      );
     }
     isLoading.value = false;
   }
@@ -22,7 +45,9 @@ class ContactsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    controller.fetchContacts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.fetchContacts(context);
+    });
     return Scaffold(
       appBar: AppBar(
         title: Text('Contacts'),
@@ -49,6 +74,9 @@ class ContactsScreen extends StatelessWidget {
           ),
           Expanded(
             child: Obx(() {
+              if (!controller.permissionGranted.value) {
+                return Center(child: Text('Contact permission not granted'));
+              }
               if (controller.isLoading.value) {
                 return Center(child: CircularProgressIndicator());
               }
@@ -62,6 +90,7 @@ class ContactsScreen extends StatelessWidget {
                 return Center(child: Text('No contacts found'));
               }
               return ListView.builder(
+                physics: BouncingScrollPhysics(),
                 itemCount: filteredContacts.length,
                 itemBuilder: (context, idx) {
                   final contact = filteredContacts[idx];

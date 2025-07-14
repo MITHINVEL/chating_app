@@ -4,6 +4,10 @@
 <uses-permission android:name="android.permission.WAKE_LOCK"/>
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 <!-- For notifications (Android 13+) -->
+<key>NSContactsUsageDescription</key>
+<string>This app needs access to your contacts to function properly.</string>
+<uses-permission android:name="android.permission.READ_CONTACTS"/>
+
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> 
     <application
         android:label="chating_app"
