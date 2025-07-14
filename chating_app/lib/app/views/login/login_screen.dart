@@ -6,6 +6,68 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+// Helper: Generate random 6-digit OTP
+String generateOtp() {
+  final random = DateTime.now().millisecondsSinceEpoch % 1000000;
+  return random.toString().padLeft(6, '0');
+}
+
+// Helper: Send SMS using a placeholder API (replace with your SMS provider)
+Future<void> sendSms(BuildContext context, String phone, String otp) async {
+  // Use Firebase Auth to send OTP SMS
+  await FirebaseAuth.instance.verifyPhoneNumber(
+    phoneNumber: phone,
+    timeout: Duration(seconds: 60),
+    verificationCompleted: (PhoneAuthCredential credential) {
+      // Auto-retrieval or instant verification
+    },
+    verificationFailed: (FirebaseAuthException e) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('Verification Failed'),
+          content: Text(e.message ?? 'Unknown error'),
+        ),
+      );
+    },
+    codeSent: (String verificationId, int? resendToken) {
+      // Store verificationId for later OTP verification
+      // You may want to save this in your state
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('OTP Sent'),
+          content: Text('OTP has been sent to your phone.'),
+        ),
+      );
+    },
+    codeAutoRetrievalTimeout: (String verificationId) {},
+  );
+}
+
+Future<void> storeOtp(String phone, String otp) async {
+  await FirebaseFirestore.instance.collection('otp').doc(phone).set({
+    'otp': otp,
+    'createdAt': FieldValue.serverTimestamp(),
+    'expiresIn': 120, // seconds
+  });
+}
+
+// Verify OTP from Firestore
+Future<bool> verifyOtp(String phone, String enteredOtp) async {
+  final doc = await FirebaseFirestore.instance.collection('otp').doc(phone).get();
+  if (!doc.exists) return false;
+  final data = doc.data();
+  if (data == null) return false;
+  final otp = data['otp'] as String?;
+  final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+  final expiresIn = data['expiresIn'] as int? ?? 120;
+  if (otp == null || createdAt == null) return false;
+  final now = DateTime.now();
+  if (now.difference(createdAt).inSeconds > expiresIn) return false;
+  return enteredOtp == otp;
+}
+
 class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -21,10 +83,33 @@ class _LoginBody extends StatefulWidget {
 }
 
 class _LoginBodyState extends State<_LoginBody> {
+  final TextEditingController phoneController = TextEditingController();
+  bool isEmail = true;
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  String emailError = '';
+  String passwordError = '';
+  String phoneError = '';
+  String otpError = '';
+  String countryCode = '+91';
+  bool passwordVisible = false;
+  bool showOtpField = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestSmsPermission();
+  }
+
+  Future<void> _requestSmsPermission() async {
+    await Permission.sms.request();
+  }
+
   final List<TextEditingController> otpControllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> otpFocusNodes = List.generate(6, (_) => FocusNode());
   int otpSeconds = 0;
   bool otpExpired = false;
+
   void startOtpTimer() {
     otpSeconds = 25;
     otpExpired = false;
@@ -42,19 +127,6 @@ class _LoginBodyState extends State<_LoginBody> {
       }
     });
   }
-  String emailError = '';
-  String passwordError = '';
-  String phoneError = '';
-  String otpError = '';
-  bool isEmail = true;
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController otpController = TextEditingController();
-  String countryCode = '+91';
-  bool showOtpField = false;
-  String verificationId = '';
-  bool passwordVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +176,6 @@ class _LoginBodyState extends State<_LoginBody> {
               labelText: 'Email',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: emailError.isNotEmpty ? Colors.red : Colors.grey),
               ),
               errorText: emailError.isNotEmpty ? emailError : null,
             ),
@@ -167,7 +238,6 @@ class _LoginBodyState extends State<_LoginBody> {
                     labelText: 'Phone Number',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: phoneError.isNotEmpty ? Colors.red : Colors.grey),
                     ),
                     errorText: phoneError.isNotEmpty ? phoneError : null,
                   ),
@@ -176,76 +246,43 @@ class _LoginBodyState extends State<_LoginBody> {
               ),
             ],
           ),
+          SizedBox(height: 8),
           SizedBox(height: 10),
           ElevatedButton(
             onPressed: () async {
-              setState(() { phoneError = ''; });
+              setState(() { phoneError = ''; otpError = ''; });
+              final phone = countryCode + phoneController.text;
               if (phoneController.text.isEmpty) {
                 setState(() { phoneError = 'Enter phone number'; });
                 return;
               }
-              // Request SMS and notification permissions
-              bool smsGranted = true;
-              bool notifGranted = true;
-              try {
-                // Request SMS permission
-                final smsStatus = await [Permission.sms].request();
-                smsGranted = smsStatus[Permission.sms]?.isGranted ?? true;
-                // Request notification permission
-                final notifStatus = await [Permission.notification].request();
-                notifGranted = notifStatus[Permission.notification]?.isGranted ?? true;
-              } catch (e) {
-                smsGranted = true; notifGranted = true; // fallback for web/unsupported
-              }
-              if (!smsGranted) {
-                setState(() { phoneError = 'SMS permission denied. Please enable SMS permission.'; });
-                return;
-              }
-              if (!notifGranted) {
-                setState(() { phoneError = 'Notification permission denied. Please enable notification permission.'; });
-                return;
-              }
               // Check Firestore for registered phone number
               final phoneDoc = await FirebaseFirestore.instance.collection('users')
-                .where('phone', isEqualTo: countryCode + phoneController.text)
+                .where('phone', isEqualTo: phone)
                 .limit(1)
                 .get();
               if (phoneDoc.docs.isEmpty) {
-                setState(() { phoneError = "Don't have this number"; });
+                setState(() { phoneError = "Don't register this number"; });
                 return;
               }
-              // Show OTP input and start timer immediately
+              // Generate OTP, store, and send SMS
+              final otp = generateOtp();
+              await storeOtp(phone, otp);
+              // final now = DateTime.now();
+              // final formattedDate = "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+              await sendSms(context, phone, otp);
               setState(() {
                 showOtpField = true;
                 otpError = '';
               });
               startOtpTimer();
-              await FirebaseAuth.instance.verifyPhoneNumber(
-                phoneNumber: countryCode + phoneController.text,
-                verificationCompleted: (PhoneAuthCredential credential) async {
-                  await FirebaseAuth.instance.signInWithCredential(credential);
-                  // TODO: Navigate to home or next screen
-                },
-                verificationFailed: (FirebaseAuthException e) {
-                  setState(() { phoneError = e.message ?? 'Phone verification failed'; });
-                },
-                codeSent: (String verId, int? resendToken) {
-                  setState(() {
-                    verificationId = verId;
-                  });
-                },
-                codeAutoRetrievalTimeout: (String verId) {
-                  verificationId = verId;
-                },
-              );
             },
             child: Text('Send OTP'),
           ),
-          if (showOtpField) ...[
-            SizedBox(height: 16),
+          if (showOtpField)
             Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                SizedBox(height: 16),
                 Text('Enter 6 digit OTP', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                 SizedBox(height: 8),
                 Row(
@@ -266,11 +303,7 @@ class _LoginBodyState extends State<_LoginBody> {
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             counterText: '',
-                            border: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                color: i == 0 && otpError.isNotEmpty ? Colors.red : Colors.grey,
-                              ),
-                            ),
+                            border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(vertical: 8),
                           ),
                           onChanged: (value) {
@@ -303,7 +336,6 @@ class _LoginBodyState extends State<_LoginBody> {
                   ),
               ],
             ),
-          ],
         ],
         SizedBox(height: 24),
         ElevatedButton(
@@ -311,99 +343,70 @@ class _LoginBodyState extends State<_LoginBody> {
             setState(() {
               emailError = '';
               passwordError = '';
-              phoneError = '';
-              otpError = '';
             });
             if (isEmail) {
-              bool hasError = false;
-              if (emailController.text.isEmpty) {
+              // Email/password login with Firebase
+              final email = emailController.text.trim();
+              final password = passwordController.text.trim();
+              if (email.isEmpty) {
                 setState(() { emailError = 'Enter email'; });
-                hasError = true;
+                return;
               }
-              if (passwordController.text.isEmpty) {
+              if (password.isEmpty) {
                 setState(() { passwordError = 'Enter password'; });
-                hasError = true;
+                return;
               }
-              if (hasError) return;
               try {
-                await FirebaseAuth.instance.signInWithEmailAndPassword(
-                  email: emailController.text,
-                  password: passwordController.text,
+                final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+                  email: email,
+                  password: password,
                 );
-                // Navigate to home screen after successful login
+                // Login success: update Firestore user last login
+                final userId = userCredential.user?.uid;
+                if (userId != null) {
+                  await FirebaseFirestore.instance.collection('users').doc(userId).set({
+                    'lastLogin': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+                }
+                // Navigate to home screen
                 Get.offAllNamed('/home');
               } catch (e) {
-                if (e is FirebaseAuthException) {
-                  if (e.code == 'user-not-found') {
-                    setState(() { emailError = 'Incorrect email'; });
-                  } else if (e.code == 'wrong-password') {
-                    setState(() { passwordError = 'Incorrect password'; });
-                  } else {
-                    setState(() { emailError = e.message ?? 'Login failed'; });
-                  }
-                } else {
-                  setState(() { emailError = 'Login failed'; });
-                }
+                setState(() { emailError = 'Invalid email or password'; });
               }
             } else {
+              final phone = countryCode + phoneController.text;
               if (!showOtpField) {
-                if (phoneController.text.isEmpty) {
-                  setState(() { phoneError = 'Enter phone number'; });
-                  return;
+                setState(() { phoneError = 'Please send OTP first'; });
+                return;
+              }
+              String otpValue = otpControllers.map((c) => c.text).join();
+              if (otpValue.length < 6) {
+                setState(() { otpError = 'Enter OTP'; });
+                return;
+              }
+              if (otpExpired) {
+                setState(() { otpError = 'OTP expired. Please resend.'; });
+                return;
+              }
+              bool valid = await verifyOtp(phone, otpValue);
+              if (valid) {
+                // Login success: update Firestore user last login
+                final phoneDoc = await FirebaseFirestore.instance.collection('users')
+                  .where('phone', isEqualTo: phone)
+                  .limit(1)
+                  .get();
+                if (phoneDoc.docs.isNotEmpty) {
+                  final userId = phoneDoc.docs.first.id;
+                  await FirebaseFirestore.instance.collection('users').doc(userId).set({
+                    'lastLogin': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
                 }
-                await FirebaseAuth.instance.verifyPhoneNumber(
-                  phoneNumber: countryCode + phoneController.text,
-                  verificationCompleted: (PhoneAuthCredential credential) async {
-                    await FirebaseAuth.instance.signInWithCredential(credential);
-                    // TODO: Navigate to home or next screen
-                  },
-                  verificationFailed: (FirebaseAuthException e) {
-                    setState(() { phoneError = e.message ?? 'Phone verification failed'; });
-                  },
-                  codeSent: (String verId, int? resendToken) {
-                    setState(() {
-                      verificationId = verId;
-                      showOtpField = true;
-                    });
-                  },
-                  codeAutoRetrievalTimeout: (String verId) {
-                    verificationId = verId;
-                  },
-                );
-              } else {
-                String otpValue = otpControllers.map((c) => c.text).join();
-                if (otpValue.length < 6) {
-                  setState(() { otpError = 'Enter OTP'; });
-                  return;
-                }
-                if (otpExpired) {
-                  setState(() { otpError = 'OTP expired. Please resend.'; });
-                  return;
-                }
-                try {
-                  PhoneAuthCredential credential = PhoneAuthProvider.credential(
-                    verificationId: verificationId,
-                    smsCode: otpValue,
-                  );
-                  await FirebaseAuth.instance.signInWithCredential(credential);
-                  // Store phone number in Firestore after successful login
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null) {
-                    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-                      'phone': countryCode + phoneController.text,
-                      'uid': user.uid,
-                      'createdAt': FieldValue.serverTimestamp(),
-                    }, SetOptions(merge: true));
-                  }
-                  // Navigate to home screen after successful login
-                  Get.offAllNamed('/home');
-                } catch (e) {
-                  setState(() { otpError = 'Invalid OTP or login failed'; });
-                }
+                // Navigate to home screen
+                Get.offAllNamed('/home');
               }
             }
           },
-          child: Text(showOtpField ? 'Verify OTP' : 'Sign In'),
+          child: Text('Sign In'),
         ),
         SizedBox(height: 16),
         TextButton(
@@ -413,16 +416,14 @@ class _LoginBodyState extends State<_LoginBody> {
         Row(
           children: [
             SizedBox(width: 10),
-            Text('Don\'t have an account?',
-                style: TextStyle(fontSize: 20)),
+            Text("Don't have an account?", style: TextStyle(fontSize: 20)),
             TextButton(
               onPressed: () => Get.toNamed('/register'),
-              child: Text('Register', style: TextStyle(fontSize: 18),
-            ),
+              child: Text('Register', style: TextStyle(fontSize: 18)),
             )
           ],
         ),
       ],
     );
   }
-}
+            }
