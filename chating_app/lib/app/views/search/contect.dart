@@ -39,15 +39,38 @@ class ContactsController extends GetxController {
   }
 }
 
-class ContactsScreen extends StatelessWidget {
-  final ContactsController controller = Get.put(ContactsController());
+class ContactsScreen extends StatefulWidget {
+  @override
+  _ContactsScreenState createState() => _ContactsScreenState();
+}
+
+class _ContactsScreenState extends State<ContactsScreen> {
+  late final ContactsController controller;
   final TextEditingController _contactSearchController = TextEditingController();
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    // Initialize GetX controller safely
+    try {
+      controller = Get.find<ContactsController>();
+    } catch (e) {
+      controller = Get.put(ContactsController());
+    }
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.fetchContacts(context);
     });
+  }
+
+  @override
+  void dispose() {
+    _contactSearchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Contacts'),
