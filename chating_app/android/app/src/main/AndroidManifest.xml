@@ -6,6 +6,9 @@
 <uses-permission android:name="android.permission.SEND_SMS"/>
 <uses-permission android:name="android.permission.RECEIVE_SMS"/>
 <uses-permission android:name="android.permission.READ_SMS"/>
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.BLUETOOTH" />
 <!-- For notifications (Android 13+) -->
 <uses-permission android:name="android.permission.READ_CONTACTS"/>
 

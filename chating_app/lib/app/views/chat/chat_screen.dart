@@ -3,9 +3,11 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/controller_service.dart';
 import '../../../models/chat_user.dart';
 import '../../../models/message.dart';
+import '../../../views/call_screen.dart';
 
 class ChatController extends GetxController {
   final ChatUser otherUser;
@@ -37,6 +39,11 @@ class ChatController extends GetxController {
     super.onInit();
     loadMessages();
     markMessagesAsRead();
+    
+    // Mark messages as read whenever new messages arrive
+    ever(messages, (_) {
+      markMessagesAsRead();
+    });
   }
   
   @override
@@ -123,8 +130,19 @@ class ChatController extends GetxController {
           .where('isRead', isEqualTo: false)
           .get();
       
+      // Batch update for better performance
+      final batch = _firestore.batch();
+      
       for (var doc in unreadMessages.docs) {
-        await doc.reference.update({'isRead': true});
+        batch.update(doc.reference, {
+          'isRead': true,
+          'readAt': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+      
+      if (unreadMessages.docs.isNotEmpty) {
+        await batch.commit();
+        print('Marked ${unreadMessages.docs.length} messages as read');
       }
     } catch (e) {
       print('Error marking messages as read: $e');
@@ -142,7 +160,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> 
-    with TickerProviderStateMixin, SafeControllerInit {
+    with TickerProviderStateMixin, SafeControllerInit, WidgetsBindingObserver {
   late final ChatController controller;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -150,6 +168,8 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     controller = getController<ChatController>(
       () => ChatController(otherUser: widget.otherUser)
     );
@@ -168,12 +188,62 @@ class _ChatScreenState extends State<ChatScreen>
     ));
     
     _animationController.forward();
+    
+    // Mark messages as read when screen opens
+    Future.delayed(Duration(milliseconds: 500), () {
+      controller.markMessagesAsRead();
+    });
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Mark messages as read when app becomes active
+    if (state == AppLifecycleState.resumed) {
+      controller.markMessagesAsRead();
+    }
   }
   
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _handlePermissions(bool isVideo) async {
+    final micPermission = await Permission.microphone.request();
+    if (!micPermission.isGranted) {
+      Get.snackbar('Permission Error', 'Microphone permission is required for calls');
+      return false;
+    }
+
+    if (isVideo) {
+      final cameraPermission = await Permission.camera.request();
+      if (!cameraPermission.isGranted) {
+        Get.snackbar('Permission Error', 'Camera permission is required for video calls');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void _startCall(bool isVideo) async {
+    final hasPermissions = await _handlePermissions(isVideo);
+    if (!hasPermissions) return;
+
+    final callID = "${controller.chatId}_${DateTime.now().millisecondsSinceEpoch}";
+    final currentUser = FirebaseAuth.instance.currentUser;
+    
+    if (currentUser == null) return;
+
+    Get.to(() => CallScreen(
+      callID: callID,
+      userID: currentUser.uid,
+      userName: currentUser.displayName ?? currentUser.uid,
+      isVideo: isVideo,
+    ));
   }
 
   @override
@@ -184,7 +254,7 @@ class _ChatScreenState extends State<ChatScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.grey[800]),
+          icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Get.back(),
         ),
         title: Row(
@@ -238,19 +308,15 @@ class _ChatScreenState extends State<ChatScreen>
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.videocam, color: Colors.grey[700]),
-            onPressed: () {
-              Get.snackbar('Video Call', 'Video call feature coming soon!');
-            },
+            icon: Icon(Icons.call, color: Colors.black),
+            onPressed: () => _startCall(false),
           ),
           IconButton(
-            icon: Icon(Icons.call, color: Colors.grey[700]),
-            onPressed: () {
-              Get.snackbar('Voice Call', 'Voice call feature coming soon!');
-            },
+            icon: Icon(Icons.videocam, color: Colors.black),
+            onPressed: () => _startCall(true),
           ),
           IconButton(
-            icon: Icon(Icons.more_vert, color: Colors.grey[700]),
+            icon: Icon(Icons.more_vert, color: Colors.black),
             onPressed: () {
               _showMoreOptions();
             },
@@ -413,11 +479,25 @@ class _ChatScreenState extends State<ChatScreen>
                       ),
                       if (isMe) ...[
                         SizedBox(width: 4),
-                        Icon(
-                          message.isRead ? Icons.done_all : Icons.done,
-                          size: 16,
-                          color: message.isRead ? Colors.lightBlue : Colors.white70,
+                        AnimatedContainer(
+                          duration: Duration(milliseconds: 300),
+                          child: Icon(
+                            message.isRead ? Icons.done_all : Icons.done,
+                            size: 16,
+                            color: message.isRead ? Colors.lightBlue[300] : Colors.white70,
+                          ),
                         ),
+                        if (message.isRead) ...[
+                          SizedBox(width: 2),
+                          Text(
+                            'Read',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.lightBlue[300],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),

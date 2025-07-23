@@ -11,21 +11,21 @@ void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     
-    // Initialize Firebase
+
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     print('Firebase initialized successfully');
     
-    // Initialize AuthService
+
     Get.put(AuthService(), permanent: true);
     print('AuthService initialized successfully');
     
-    // Initialize UserService  
+
     Get.put(UserService(), permanent: true);
     print('UserService initialized successfully');
     
-    // Set system UI overlay style
+
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -163,7 +163,6 @@ class MyApp extends StatelessWidget {
       ),
       defaultTransition: Transition.cupertino,
       transitionDuration: Duration(milliseconds: 300),
-      // Remove home property to let initialRoute handle it
     );
   }
 }

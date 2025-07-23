@@ -42,11 +42,11 @@ class LoginController extends GetxController {
           isLoading.value = false;
           Get.offAllNamed('/home');
           Get.snackbar(
-            '🎉 Welcome Back!',
+            'Welcome Back!',
             'Hello ${userData.displayName}! Ready to chat?',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.green,
-            colorText: Colors.white,
+            colorText: const Color.fromARGB(255, 14, 13, 13),
             duration: Duration(seconds: 3),
             icon: Icon(Icons.check_circle, color: Colors.white),
           );
@@ -55,7 +55,7 @@ class LoginController extends GetxController {
           await FirebaseAuth.instance.signOut();
           isLoading.value = false;
           Get.snackbar(
-            '❌ Not Registered',
+            'Not Registered',
             'You are not registered in our chat system. Please register first to start chatting!',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.orange.shade600,
@@ -73,28 +73,28 @@ class LoginController extends GetxController {
       
       switch (e.code) {
         case 'user-not-found':
-          errorMessage = '❌ You are not registered. Please create an account first to join our chat community!';
+          errorMessage = 'You are not registered. Please create an account first to join our chat community!';
           backgroundColor = Colors.orange.shade600;
           iconData = Icons.person_add;
           break;
         case 'wrong-password':
-          errorMessage = '🔒 Incorrect password. Please check and try again.';
+          errorMessage = 'Incorrect password. Please check and try again.';
           iconData = Icons.lock;
           break;
         case 'invalid-email':
-          errorMessage = '📧 Please enter a valid email address.';
+          errorMessage = 'Please enter a valid email address.';
           iconData = Icons.email;
           break;
         case 'user-disabled':
-          errorMessage = '🚫 Your account has been disabled. Contact support.';
+          errorMessage = 'Your account has been disabled. Contact support.';
           iconData = Icons.block;
           break;
         case 'too-many-requests':
-          errorMessage = '⏰ Too many login attempts. Please try again later.';
+          errorMessage = 'Too many login attempts. Please try again later.';
           iconData = Icons.access_time;
           break;
         default:
-          errorMessage = '❌ ${e.message ?? 'Login failed. Please try again.'}';
+          errorMessage = '${e.message ?? 'Login failed. Please try again.'}';
       }
       
       Get.snackbar(
@@ -110,7 +110,7 @@ class LoginController extends GetxController {
       isLoading.value = false;
       Get.snackbar(
         'Connection Error',
-        '❌ Network error occurred. Please check your connection and try again.',
+        'Network error occurred. Please check your connection and try again.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.shade600,
         colorText: Colors.white,
@@ -234,41 +234,28 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.purple.shade400,
-              Colors.pink.shade300,
-              Colors.orange.shade300,
-              Colors.yellow.shade200,
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 40),
-                // Back button with enhanced styling
-                GestureDetector(
-                  onTap: () => Get.back(),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 40),
+              // Back button with enhanced styling
+              GestureDetector(
+                onTap: () => Get.back(),
                   child: Container(
                     padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.grey[300]!,
                         width: 1,
                       ),
                     ),
-                    child: Icon(Icons.arrow_back, color: Colors.white),
+                    child: Icon(Icons.arrow_back, color: Colors.black),
                   ),
                 ),
                 SizedBox(height: 40),
@@ -287,18 +274,11 @@ class _LoginScreenState extends State<LoginScreen>
                             Obx(() => AnimatedTextKit(
                               animatedTexts: [
                                 TypewriterAnimatedText(
-                                  controller.isPhoneMode.value ? 'Phone Login 📱' : 'Welcome Back! 🎉',
+                                  controller.isPhoneMode.value ? 'Phone Login' : 'Welcome Back!',
                                   textStyle: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        blurRadius: 10.0,
-                                        color: Colors.black.withOpacity(0.3),
-                                        offset: Offset(2.0, 2.0),
-                                      ),
-                                    ],
+                                    color: Colors.black,
                                   ),
                                   speed: Duration(milliseconds: 100),
                                 ),
@@ -398,8 +378,8 @@ class _LoginScreenState extends State<LoginScreen>
                               onTap: () => controller.toggleLoginMode(),
                               child: Text(
                                 controller.isPhoneMode.value 
-                                    ? 'Use Email 📧' 
-                                    : 'Use Phone 📱',
+                                    ? 'Use Email' 
+                                    : 'Use Phone',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -436,18 +416,13 @@ class _LoginScreenState extends State<LoginScreen>
                               width: double.infinity,
                               padding: EdgeInsets.symmetric(vertical: 18),
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.9),
-                                    Colors.white.withOpacity(0.7),
-                                  ],
-                                ),
+                                color: Colors.indigo,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 15,
-                                    offset: Offset(0, 8),
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
                                   ),
                                 ],
                               ),
@@ -463,10 +438,10 @@ class _LoginScreenState extends State<LoginScreen>
                                       ),
                                     )
                                   : Text(
-                                      controller.isPhoneMode.value ? 'Send OTP 📱' : 'Login 🚀',
+                                      controller.isPhoneMode.value ? 'Send OTP' : 'Login',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Colors.purple.shade700,
+                                        color: Colors.white,
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -495,16 +470,16 @@ class _LoginScreenState extends State<LoginScreen>
                             Text(
                               'Don\'t have an account? ',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.grey[600],
                                 fontSize: 16,
                               ),
                             ),
                             GestureDetector(
                               onTap: () => Get.toNamed('/register'),
                               child: Text(
-                                'Register 📝',
+                                'Register',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.indigo,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   decoration: TextDecoration.underline,
@@ -521,7 +496,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -546,35 +520,24 @@ class _LoginScreenState extends State<LoginScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Phone Number 📱',
+          'Phone Number',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                blurRadius: 5.0,
-                color: Colors.black.withOpacity(0.3),
-                offset: Offset(1.0, 1.0),
-              ),
-            ],
+            color: Colors.grey[800],
           ),
         ),
         SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.9),
-                Colors.white.withOpacity(0.8),
-              ],
-            ),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: Offset(0, 5),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: Offset(0, 2),
               ),
             ],
           ),
@@ -595,7 +558,7 @@ class _LoginScreenState extends State<LoginScreen>
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(16),
                       bottomLeft: Radius.circular(16),
@@ -621,7 +584,7 @@ class _LoginScreenState extends State<LoginScreen>
               Container(
                 width: 1,
                 height: 30,
-                color: Colors.purple.shade200,
+                color: Colors.grey[300],
               ),
               // Phone number input
               Expanded(
@@ -656,35 +619,24 @@ class _LoginScreenState extends State<LoginScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Email Address 📧',
+          'Email Address',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                blurRadius: 5.0,
-                color: Colors.black.withOpacity(0.3),
-                offset: Offset(1.0, 1.0),
-              ),
-            ],
+            color: Colors.grey[800],
           ),
         ),
         SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.9),
-                Colors.white.withOpacity(0.8),
-              ],
-            ),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: Offset(0, 5),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: Offset(0, 2),
               ),
             ],
           ),
@@ -709,35 +661,24 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         SizedBox(height: 16),
         Text(
-          'Password 🔒',
+          'Password',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                blurRadius: 5.0,
-                color: Colors.black.withOpacity(0.3),
-                offset: Offset(1.0, 1.0),
-              ),
-            ],
+            color: Colors.grey[800],
           ),
         ),
         SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.9),
-                Colors.white.withOpacity(0.8),
-              ],
-            ),
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: Offset(0, 5),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: Offset(0, 2),
               ),
             ],
           ),
